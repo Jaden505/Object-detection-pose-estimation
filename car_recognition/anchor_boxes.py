@@ -41,6 +41,25 @@ def apply_offsets(anchor_boxes, offsets):
     return new_boxes
 
 
+def apply_nms(predictions, iou_threshold=0.7, confidence_threshold=0.7):
+    # Filter predictions by confidence threshold first
+    predictions = [p for p in predictions if p[4] >= confidence_threshold]
+    
+    # Sort predictions based on confidence in descending order
+    predictions.sort(key=lambda x: x[4], reverse=True)
+    
+    confident_predictions = []
+    while predictions:
+        # Take the prediction with the highest confidence
+        max_confidence = predictions.pop(0)
+        confident_predictions.append(max_confidence)
+        
+        # Keep only predictions with IoU less than the threshold
+        predictions = [pred for pred in predictions if iou(max_confidence[:4], pred[:4]) < iou_threshold]
+
+    return confident_predictions
+        
+
 def visualize_anchor_boxes(anchor_boxes, image_size=(400, 400)):
     _, ax = plt.subplots(1)
     ax.set_xlim(0, image_size[0])

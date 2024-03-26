@@ -69,6 +69,26 @@ def yolo_model(input_shape, num_boxes, grid_dim, num_classes):
     
     return tf.keras.Model(input_layer, x)
 
+
+def custom_loss(labels, predictions):
+    # calculate all iou scores
+    # calculate the loss for each anchor box by abs(iou - confidence)
+    # sum all the losses using mean squared error
+    errors = []
+    
+    predictions = apply_predictions_to_anchor_boxes(predictions)
+    
+    for i in range(len(predictions)):
+        # get the anchor box with the highest iou
+        iou = [p.iou(labels[i], predictions[i][j]) for j in range(len(predictions[i]))]
+        
+        # calculate the loss for all anchor boxes
+        for j in range(len(predictions[i])):
+            errors.append(abs(iou[j] - predictions[i][j][4]))
+            
+    # return the mean squared error
+    return tf.reduce_mean(tf.square(errors))
+
 if __name__ == '__main__':
     model = yolo_model()
     model.summary()
