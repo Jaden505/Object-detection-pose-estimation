@@ -13,7 +13,7 @@ from keras.layers import (
 )
 
 
-def yolo_model(input_shape, num_boxes, grid_dim, num_classes):
+def yolo_model(input_shape, grid_dim, num_boxes):
     input_layer = Input(shape=input_shape )
     x = input_layer
     
@@ -61,33 +61,14 @@ def yolo_model(input_shape, num_boxes, grid_dim, num_classes):
     
     # Output Layer
     x = Flatten()(x)
-    x = Dense(4096)(x)
+    x = Dense(2048)(x)
     x = LeakyReLU(alpha=0.1)(x)
     x = Dropout(0.5)(x)
-    x = Dense(grid_dim * grid_dim * num_boxes * 5 * num_classes, activation='sigmoid')(x) # 5 = 1 (confidence score) + 4 (bounding box coordinates)
-    x = Reshape((grid_dim, grid_dim, num_boxes * 5 + num_classes))(x)
+    x = Dense(grid_dim * grid_dim * num_boxes * 5, activation='sigmoid')(x) # 5 = 1 (confidence score) + 4 (bounding box coordinates)
+    x = Reshape((grid_dim, grid_dim, num_boxes * 5))(x)
     
     return tf.keras.Model(input_layer, x)
 
-
-def custom_loss(labels, predictions):
-    # calculate all iou scores
-    # calculate the loss for each anchor box by abs(iou - confidence)
-    # sum all the losses using mean squared error
-    errors = []
-    
-    predictions = apply_predictions_to_anchor_boxes(predictions)
-    
-    for i in range(len(predictions)):
-        # get the anchor box with the highest iou
-        iou = [p.iou(labels[i], predictions[i][j]) for j in range(len(predictions[i]))]
-        
-        # calculate the loss for all anchor boxes
-        for j in range(len(predictions[i])):
-            errors.append(abs(iou[j] - predictions[i][j][4]))
-            
-    # return the mean squared error
-    return tf.reduce_mean(tf.square(errors))
 
 if __name__ == '__main__':
     model = yolo_model()

@@ -1,47 +1,28 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import tensorflow as tf
 
 
-def create_anchor_boxes(grid_size, anchor_sizes):
+def create_anchor_boxes(grid_size, num_anchors):
+    """Create anchor boxes for each cell in the grid."""
     rows, cols = grid_size
-    anchor_boxes = []
+    anchor_boxes = np.zeros((rows, cols, num_anchors, 4))
     
     # Calculate step sizes for grid
     step_x = 1.0 / cols
     step_y = 1.0 / rows
     
-    for size in anchor_sizes:
-        width, height = size
-        for y in range(rows):
-            for x in range(cols):
-                # Offset by 0.5 to get the center of the cell since the grid is from 0 to 1
-                center_x = (x + 0.5) * step_x 
-                center_y = (y + 0.5) * step_y
-                
-                anchor_boxes.append((center_x, center_y, width, height))
+    for i in range(rows):
+        for j in range(cols):
+            for k in range(num_anchors):
+                anchor_boxes[i, j, k] = (i * step_x + step_x / 2, j * step_y + step_y / 2, 0.1, 0.1)
     
     return anchor_boxes
 
 
-def apply_offsets(anchor_boxes, offsets):
-    new_boxes = []
-    
-    for box, offset in zip(anchor_boxes, offsets):
-        center_x, center_y, width, height = box
-        offset_x, offset_y, offset_w, offset_h = offset
-        
-        new_center_x = center_x + offset_x
-        new_center_y = center_y + offset_y
-        new_width = width + offset_w
-        new_height = height + offset_h
-        
-        new_boxes.append((new_center_x, new_center_y, new_width, new_height))
-    
-    return new_boxes
-
-
 def apply_nms(predictions, iou_threshold=0.7, confidence_threshold=0.7):
+    """Apply non-maximum suppression to the predictions"""
     # Filter predictions by confidence threshold first
     predictions = [p for p in predictions if p[4] >= confidence_threshold]
     
@@ -58,7 +39,7 @@ def apply_nms(predictions, iou_threshold=0.7, confidence_threshold=0.7):
         predictions = [pred for pred in predictions if iou(max_confidence[:4], pred[:4]) < iou_threshold]
 
     return confident_predictions
-        
+
 
 def visualize_anchor_boxes(anchor_boxes, image_size=(400, 400)):
     _, ax = plt.subplots(1)
@@ -78,7 +59,7 @@ def visualize_anchor_boxes(anchor_boxes, image_size=(400, 400)):
     plt.show()
 
     
-def iou(box1, box2):
+def iou_anchor_label(box1, box2):
     x1, y1, w1, h1 = box1
     x2, y2, w2, h2 = box2
     
@@ -89,6 +70,24 @@ def iou(box1, box2):
     
     x_overlap = max(0, min(x1_max, x2_max) - max(x1_min, x2_min))
     y_overlap = max(0, min(y1_max, y2_max) - max(y1_min, y2_min))
+    
+    intersection = x_overlap * y_overlap
+    union = w1 * h1 + w2 * h2 - intersection
+    
+    return intersection / union
+
+
+def iou_pred_label(box1, box2):
+    x1, y1, w1, h1, c = tf.split(box1, 5)
+    x2, y2, w2, h2, c = tf.split(box2, 5)
+    
+    x1_min, x1_max = x1 - w1 / 2, x1 + w1 / 2
+    y1_min, y1_max = y1 - h1 / 2, y1 + h1 / 2
+    x2_min, x2_max = x2 - w2 / 2, x2 + w2 / 2
+    y2_min, y2_max = y2 - h2 / 2, y2 + h2 / 2
+    
+    x_overlap = tf.maximum(0.0, tf.minimum(x1_max, x2_max) - tf.maximum(x1_min, x2_min))
+    y_overlap = tf.maximum(0.0, tf.minimum(y1_max, y2_max) - tf.maximum(y1_min, y2_min))
     
     intersection = x_overlap * y_overlap
     union = w1 * h1 + w2 * h2 - intersection
