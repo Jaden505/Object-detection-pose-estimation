@@ -4,23 +4,6 @@ import matplotlib.patches as patches
 import tensorflow as tf
 
 
-def create_anchor_boxes(grid_size, num_anchors):
-    """Create anchor boxes for each cell in the grid."""
-    rows, cols = grid_size
-    anchor_boxes = np.zeros((rows, cols, num_anchors, 4))
-    
-    # Calculate step sizes for grid
-    step_x = 1.0 / cols
-    step_y = 1.0 / rows
-    
-    for i in range(rows):
-        for j in range(cols):
-            for k in range(num_anchors):
-                anchor_boxes[i, j, k] = (i * step_x + step_x / 2, j * step_y + step_y / 2, 0.1, 0.1)
-    
-    return anchor_boxes
-
-
 def apply_nms(predictions, iou_threshold=0.7, confidence_threshold=0.7):
     """Apply non-maximum suppression to the predictions"""
     # Filter predictions by confidence threshold first
@@ -36,7 +19,7 @@ def apply_nms(predictions, iou_threshold=0.7, confidence_threshold=0.7):
         confident_predictions.append(max_confidence)
         
         # Keep only predictions with IoU less than the threshold
-        predictions = [pred for pred in predictions if iou(max_confidence[:4], pred[:4]) < iou_threshold]
+        predictions = [pred for pred in predictions if iou_anchor_label(max_confidence[:4], pred[:4]) < iou_threshold]
 
     return confident_predictions
 
@@ -57,7 +40,7 @@ def visualize_anchor_boxes(anchor_boxes, image_size=(400, 400)):
         ax.add_patch(rect)
     
     plt.show()
-
+    
     
 def iou_anchor_label(box1, box2):
     x1, y1, w1, h1 = box1
@@ -78,8 +61,8 @@ def iou_anchor_label(box1, box2):
 
 
 def iou_pred_label(box1, box2):
-    x1, y1, w1, h1, c = tf.split(box1, 5)
-    x2, y2, w2, h2, c = tf.split(box2, 5)
+    x1, y1, w1, h1 = tf.split(box1, 4)
+    x2, y2, w2, h2 = tf.split(box2, 4)
     
     x1_min, x1_max = x1 - w1 / 2, x1 + w1 / 2
     y1_min, y1_max = y1 - h1 / 2, y1 + h1 / 2

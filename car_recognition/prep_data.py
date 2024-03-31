@@ -21,11 +21,11 @@ class PrepData:
         formatted_imgs = [np.array(img, dtype='float32') / 255.0 for img in img_list] # Normalize pixel values
         return np.stack(formatted_imgs)
     
-    def connect_labels(self, img_list, grid_size, num_boxes, anchor_boxes, iou):
+    def connect_labels(self, img_list, grid_size, anchor_sizes, iou):
         all_labels = []
         
-        for img in img_list:
-            label_array = np.zeros((grid_size, grid_size, num_boxes * 5))
+        for img_index, img in enumerate(img_list):
+            label_array = np.zeros((grid_size, grid_size, len(anchor_sizes) * 5))
             
             file_name = os.path.basename(img.filename)
             bounding_boxes = self.labels[self.labels['image'] == file_name]
@@ -38,8 +38,8 @@ class PrepData:
                 ymax = bounding_box['ymax'] / img.height
                 
                 # Convert (xmin, ymin, xmax, ymax) to (x, y, w, h)
-                x = (xmin + xmax) / 2
-                y = (ymin + ymax) / 2 
+                x = (xmin + xmax) / 2 # Center x
+                y = (ymin + ymax) / 2 # Center y
                 w = xmax - xmin
                 h = ymax - ymin
                 
@@ -49,20 +49,19 @@ class PrepData:
                 
                 # Determine which anchor box of the cell has the highest IoU with the bounding box
                 best_iou = 0
-                best_box_index = None
-
-                for cell in anchor_boxes[grid_x][grid_y]:
-                    for slice in range(0, len(cell), 4):
-                        box = cell[slice: slice + 4]
-                        iou_score = iou((x, y, w, h), box)
-                        if iou_score > best_iou:
-                            best_iou = iou_score
-                            best_box_index = slice // 4
-                                
-
-                # Set the label array values based on the best anchor box
-                label_array[grid_x][grid_y][best_box_index *5: (best_box_index *5)+5] = [x, y, w, h, best_iou]
-
+                best_anchor_index = -1
+                for anchor_index, (anchor_w, anchor_h) in enumerate(anchor_sizes):
+                    # Calculate IoU with each anchor box
+                    iou_score = iou([0, 0, w, h], [0, 0, anchor_w, anchor_h])
+                    if iou_score > best_iou:
+                        best_iou = iou_score
+                        best_anchor_index = anchor_index
+                
+                if best_anchor_index != -1:  # Valid match found
+                    label_index = best_anchor_index * 5
+                    # Directly use normalized values; assume predictions will adjust based on anchor
+                    label_array[grid_y, grid_x, label_index:label_index+5] = [x, y, w, h, 1] 
+                
             all_labels.append(label_array)
     
         return np.array(all_labels)

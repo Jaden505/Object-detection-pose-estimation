@@ -64,7 +64,7 @@ def yolo_model(input_shape, grid_dim, num_boxes):
     x = Dense(2048)(x)
     x = LeakyReLU(alpha=0.1)(x)
     x = Dropout(0.5)(x)
-    x = Dense(grid_dim * grid_dim * num_boxes * 5, activation='sigmoid')(x) # 5 = 1 (confidence score) + 4 (bounding box coordinates)
+    x = Dense(grid_dim * grid_dim * num_boxes * 5, activation='sigmoid')(x) # 5 = 1 (confidence score) + 4 (bounding box coordinates) activation
     x = Reshape((grid_dim, grid_dim, num_boxes * 5))(x)
     
     return tf.keras.Model(input_layer, x)
