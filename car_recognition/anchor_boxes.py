@@ -22,24 +22,6 @@ def apply_nms(predictions, iou_threshold=0.7, confidence_threshold=0.7):
         predictions = [pred for pred in predictions if iou_anchor_label(max_confidence[:4], pred[:4]) < iou_threshold]
 
     return confident_predictions
-
-
-def visualize_anchor_boxes(anchor_boxes, image_size=(400, 400)):
-    _, ax = plt.subplots(1)
-    ax.set_xlim(0, image_size[0])
-    ax.set_ylim(0, image_size[1])
-    ax.invert_yaxis()  # Invert y axis to match image coordinates
-    
-    for box in anchor_boxes:
-        center_x, center_y, width, height = box
-        # Convert from center, size to bottom-left corner, size
-        rect = patches.Rectangle((center_x * image_size[0] - width * image_size[0] / 2, 
-                                  center_y * image_size[1] - height * image_size[1] / 2), 
-                                 width * image_size[0], height * image_size[1], 
-                                 linewidth=1, edgecolor='r', facecolor='none')
-        ax.add_patch(rect)
-    
-    plt.show()
     
     
 def iou_anchor_label(box1, box2):
@@ -61,6 +43,10 @@ def iou_anchor_label(box1, box2):
 
 
 def iou_pred_label(box1, box2):
+    # If boxes arent type of tensor, convert them to tensor
+    if not isinstance(box1, tf.Tensor):
+        box1 = tf.convert_to_tensor(box1)
+    
     x1, y1, w1, h1 = tf.split(box1, 4)
     x2, y2, w2, h2 = tf.split(box2, 4)
     
@@ -76,3 +62,42 @@ def iou_pred_label(box1, box2):
     union = w1 * h1 + w2 * h2 - intersection
     
     return intersection / union
+
+
+def iou_vectorized(box1, box2):
+    if not isinstance(box1, tf.Tensor):
+        box1 = tf.convert_to_tensor(box1)
+        box2 = tf.convert_to_tensor(box2)
+        
+    # Calculate corners of boxes for the intersection area
+    box1_corners = tf.concat([box1[..., :2] - box1[..., 2:] / 2.0, 
+                              box1[..., :2] + box1[..., 2:] / 2.0], axis=-1) 
+    box2_corners = tf.concat([box2[..., :2] - box2[..., 2:] / 2.0, 
+                              box2[..., :2] + box2[..., 2:] / 2.0], axis=-1)
+
+    intersect_mins = tf.maximum(box1_corners[..., :2], box2_corners[..., :2])
+    intersect_maxs = tf.minimum(box1_corners[..., 2:], box2_corners[..., 2:])
+    intersect_wh = tf.maximum(intersect_maxs - intersect_mins, 0.0)
+    intersection = intersect_wh[..., 0] * intersect_wh[..., 1]
+
+    # Calculate union
+    box1_area = box1[..., 2] * box1[..., 3]
+    box2_area = box2[..., 2] * box2[..., 3]
+    union = box1_area + box2_area - intersection
+
+    # Calculate IOU
+    iou = intersection / union
+    
+    return iou
+
+
+def prediction_to_box(prediction, grid_dim, anchor_sizes, i, j, k):
+    x, y, w, h = prediction[0], prediction[1], prediction[2], prediction[3]
+    
+    # Sigmoid and exp transformations to get the box coordinates from normalized cell coordinates
+    x = (tf.sigmoid(x) + i) / grid_dim
+    y = (tf.sigmoid(y) + j) / grid_dim
+    w = anchor_sizes[k][0] * tf.exp(w)
+    h = anchor_sizes[k][1] * tf.exp(h)
+                
+    return x, y, w, h
