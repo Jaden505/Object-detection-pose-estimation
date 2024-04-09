@@ -4,7 +4,12 @@ import tensorflow as tf
 def iou_vectorized(box1, box2):
     if not isinstance(box1, tf.Tensor):
         box1 = tf.convert_to_tensor(box1)
+    if not isinstance(box2, tf.Tensor):
         box2 = tf.convert_to_tensor(box2)
+        
+    # make sure both boxes have same type
+    box1 = tf.cast(box1, tf.float32)
+    box2 = tf.cast(box2, tf.float32)
         
     # Calculate corners of boxes for the intersection area
     box1_corners = tf.concat([box1[..., :2] - box1[..., 2:] / 2.0, 
