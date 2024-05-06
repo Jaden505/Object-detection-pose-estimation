@@ -3,7 +3,7 @@ import os
 from glob import glob
 import numpy as np
 import pandas as pd
-
+from anchor_boxes import iou_vectorized
 
 class PrepData:
     def __init__(self):
@@ -20,6 +20,13 @@ class PrepData:
     def preprocess_images(self, img_list):
         formatted_imgs = [np.array(img, dtype='float32') / 255.0 for img in img_list] # Normalize pixel values
         return np.stack(formatted_imgs)
+    
+    def get_image_with_labels(self, img_list, image_index):
+        img = img_list[image_index]
+        file_name = os.path.basename(img.filename)
+        bounding_boxes = self.labels[self.labels['image'] == file_name]
+        
+        return img, bounding_boxes
     
     def connect_labels(self, img_list, grid_size, anchor_sizes, iou):
         all_labels = []
@@ -44,7 +51,7 @@ class PrepData:
                 h = ymax - ymin
                 
                 # Determine which grid cell this bounding box falls into
-                grid_x = int(x * grid_size)
+                grid_x = int(x * grid_size) # falls withing range [0, grid_size)
                 grid_y = int(y * grid_size)
                 
                 # Determine which anchor box of the cell has the highest IoU with the bounding box
@@ -59,9 +66,18 @@ class PrepData:
                 
                 if best_anchor_index != -1:  # Valid match found
                     label_index = best_anchor_index * 5
+                    
+                    # Calculate offsets for the bounding box
+                    cw = img.width / grid_size
+                    ch = img.height / grid_size
+                    cell_top_left_x = ((grid_x * cw) + 1e-7) / img.width # Add small epsilon to avoid division by zero
+                    cell_top_left_y = ((grid_y * ch) + 1e-7) / img.height
+                    x_cell = x - cell_top_left_x
+                    y_cell = y - cell_top_left_y
+                    
                     # Directly use normalized values; assume predictions will adjust based on anchor
-                    label_array[grid_y, grid_x, label_index:label_index+5] = [x, y, w, h, 1] 
-                
+                    label_array[grid_x, grid_y, label_index:label_index+5] = [x_cell, y_cell, w, h, 1]
+            
             all_labels.append(label_array)
     
         return np.array(all_labels)
@@ -69,8 +85,7 @@ class PrepData:
 if __name__ == '__main__':
     p = PrepData()
     train, test = p.load_images()
-    labels = p.connect_labels(train, 13, 5, 1)
-    print(labels.shape)
-    print(labels[0][0][0])
+    labels = p.connect_labels(train, 13, [(0.15, 0.075), (0.2, 0.1), (0.3, 0.2)], iou_vectorized)
+    print(labels)
     # train, test = p.preprocess_images(train), p.preprocess_images(test)
     

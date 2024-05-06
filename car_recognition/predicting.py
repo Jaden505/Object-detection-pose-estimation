@@ -39,10 +39,9 @@ def predict_image(image, model, grid_dim, iou_vectorized):
 
 def draw_boxes(image, boxes):
     for box in boxes:
-        x1, y1, x2, y2 = box[:4]
+        y1, x1, y2, x2 = box[:4]
         cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 2)
     return image
-
 
 def apply_nms(boxes, iou_vectorized, iou_threshold=0.7, confidence_threshold=0.7):
     """ Apply non-maximum suppression to the predictions
