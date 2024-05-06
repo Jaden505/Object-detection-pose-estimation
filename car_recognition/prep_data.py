@@ -70,13 +70,15 @@ class PrepData:
                     # Calculate offsets for the bounding box
                     cw = img.width / grid_size
                     ch = img.height / grid_size
-                    cell_top_left_x = ((grid_x * cw) + 1e-7) / img.width # Add small epsilon to avoid division by zero
+                    
+                    cell_top_left_x = ((grid_x * cw) + 1e-7) / img.width  # Add small epsilon to avoid division by zero
                     cell_top_left_y = ((grid_y * ch) + 1e-7) / img.height
-                    x_cell = x - cell_top_left_x
-                    y_cell = y - cell_top_left_y
+                    
+                    x_cell = (x - cell_top_left_x) / cw
+                    y_cell = (y - cell_top_left_y) / ch 
                     
                     # Directly use normalized values; assume predictions will adjust based on anchor
-                    label_array[grid_x, grid_y, label_index:label_index+5] = [x_cell, y_cell, w, h, 1]
+                    label_array[grid_y, grid_x, label_index:label_index+5] = [x_cell, y_cell, w, h, 1]
             
             all_labels.append(label_array)
     
@@ -86,6 +88,5 @@ if __name__ == '__main__':
     p = PrepData()
     train, test = p.load_images()
     labels = p.connect_labels(train, 13, [(0.15, 0.075), (0.2, 0.1), (0.3, 0.2)], iou_vectorized)
-    print(labels)
     # train, test = p.preprocess_images(train), p.preprocess_images(test)
     

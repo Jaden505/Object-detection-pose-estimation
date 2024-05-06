@@ -31,15 +31,3 @@ def iou_vectorized(box1, box2):
     iou = intersection / (union + 1e-7)  # Adding a small epsilon value to avoid division by zero
     
     return iou
-
-
-def offsets_to_coordinates(prediction, grid_dim, anchor_sizes, x_cell, y_cell, anchor_index):
-    x, y, w, h = prediction[0], prediction[1], prediction[2], prediction[3]
-    
-    # Sigmoid and exp transformations to get the box coordinates from normalized cell coordinates
-    x = (tf.sigmoid(x) + x_cell) / grid_dim
-    y = (tf.sigmoid(y) + y_cell) / grid_dim
-    w = anchor_sizes[anchor_index][0] * tf.exp(w)
-    h = anchor_sizes[anchor_index][1] * tf.exp(h)
-                
-    return x, y, w, h
